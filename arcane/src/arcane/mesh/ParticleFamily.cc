@@ -26,6 +26,7 @@
 #include "arcane/mesh/DynamicMesh.h"
 #include "arcane/mesh/ItemConnectivitySelector.h"
 #include "arcane/mesh/DynamicMeshKindInfos.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -38,7 +39,7 @@ namespace Arcane::mesh
 
 ParticleFamily::
 ParticleFamily(IMesh* mesh, const String& name)
-: ItemFamily(mesh, IK_Particle, name)
+: IAnyParticleFamily(mesh, IK_Particle, name)
 , m_particle_type_info(nullptr)
 , m_particle_shared_info(nullptr)
 , m_sub_domain_id(NULL_SUB_DOMAIN_ID)

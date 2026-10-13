@@ -12,7 +12,7 @@
 /*---------------------------------------------------------------------------*/
 
 #include "arcane/utils/TraceAccessor.h"
-#include "arcane/utils/NotImplementedException.h"
+#include "arcane/utils/NotSupportedException.h"
 
 #include "arcane/core/IItemFamilyCompactPolicy.h"
 #include "arcane/core/ItemFamilyCompactInfos.h"
@@ -21,7 +21,7 @@
 
 #include "arcane/mesh/ItemFamilyPolicyMng.h"
 #include "arcane/mesh/ParticleFamilySerializer.h"
-#include "arcane/mesh/ParticleFamily.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -43,7 +43,7 @@ class ParticleFamilyCompactPolicy
 {
  public:
 
-  ParticleFamilyCompactPolicy(ParticleFamily* family)
+  ParticleFamilyCompactPolicy(IAnyParticleFamily* family)
   : TraceAccessor(family->traceMng())
   , m_family(family)
   {
@@ -99,7 +99,7 @@ class ParticleFamilyCompactPolicy
 
  private:
 
-  ParticleFamily* m_family;
+  IAnyParticleFamily* m_family;
   IItemFamily* m_cell_family;
 };
 
@@ -113,7 +113,7 @@ class ARCANE_MESH_EXPORT ParticleFamilyPolicyMng
 {
  public:
 
-  ParticleFamilyPolicyMng(ParticleFamily* family)
+  ParticleFamilyPolicyMng(IAnyParticleFamily* family)
   : ItemFamilyPolicyMng(family, new ParticleFamilyCompactPolicy(family))
   , m_family(family)
   {}
@@ -129,7 +129,7 @@ class ARCANE_MESH_EXPORT ParticleFamilyPolicyMng
 
  private:
 
-  ParticleFamily* m_family;
+  IAnyParticleFamily* m_family;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -138,7 +138,7 @@ class ARCANE_MESH_EXPORT ParticleFamilyPolicyMng
 extern "C++" ARCANE_MESH_EXPORT IItemFamilyPolicyMng*
 createParticleFamilyPolicyMng(ItemFamily* family)
 {
-  ParticleFamily* f = ARCANE_CHECK_POINTER(dynamic_cast<ParticleFamily*>(family));
+  IAnyParticleFamily* f = ARCANE_CHECK_POINTER(dynamic_cast<IAnyParticleFamily*>(family));
   return new ParticleFamilyPolicyMng(f);
 }
 

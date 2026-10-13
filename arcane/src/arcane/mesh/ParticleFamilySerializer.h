@@ -17,6 +17,7 @@
 #include "arcane/utils/TraceAccessor.h"
 
 #include "arcane/mesh/MeshGlobal.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 #include "arcane/core/IItemFamilySerializer.h"
 
 /*---------------------------------------------------------------------------*/
@@ -41,7 +42,7 @@ class ARCANE_MESH_EXPORT ParticleFamilySerializer
 {
  public:
 
-  ParticleFamilySerializer(ParticleFamily* family);
+  ParticleFamilySerializer(IAnyParticleFamily* family);
 
  public:
 
@@ -61,7 +62,7 @@ class ARCANE_MESH_EXPORT ParticleFamilySerializer
 
  private:
 
-  ParticleFamily* m_family;
+  IAnyParticleFamily* m_family;
 };
 
 /*---------------------------------------------------------------------------*/

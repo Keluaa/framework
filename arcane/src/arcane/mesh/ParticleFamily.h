@@ -21,6 +21,7 @@
 
 #include "arcane/mesh/ItemFamily.h"
 #include "arcane/mesh/ItemInternalConnectivityIndex.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -37,8 +38,7 @@ class ItemSharedInfoWithType;
  * \brief Particle family.
  */
 class ARCANE_MESH_EXPORT ParticleFamily
-: public ItemFamily
-, public IParticleFamily
+: public IAnyParticleFamily
 {
  private:
 

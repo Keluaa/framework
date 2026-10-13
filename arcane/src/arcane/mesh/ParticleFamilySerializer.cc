@@ -17,7 +17,7 @@
 #include "arcane/core/IParallelMng.h"
 
 #include "arcane/mesh/ParticleFamilySerializer.h"
-#include "arcane/mesh/ParticleFamily.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -29,7 +29,7 @@ namespace Arcane::mesh
 /*---------------------------------------------------------------------------*/
 
 ParticleFamilySerializer::
-ParticleFamilySerializer(ParticleFamily* family)
+ParticleFamilySerializer(IAnyParticleFamily* family)
 : TraceAccessor(family->traceMng())
 , m_family(family)
 {

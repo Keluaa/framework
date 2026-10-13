@@ -23,7 +23,7 @@
 #include "arcane/core/SerializeBuffer.h"
 #include "arcane/core/ParallelMngUtils.h"
 
-#include "arcane/mesh/ParticleFamily.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -97,7 +97,7 @@ computeExtraGhostParticles()
     IItemFamily* family = *i;
     if (family->itemKind() != IK_Particle)
       continue;
-    ParticleFamily* particle_family = ARCANE_CHECK_POINTER(dynamic_cast<ParticleFamily*>(family));
+    IAnyParticleFamily* particle_family = ARCANE_CHECK_POINTER(dynamic_cast<IAnyParticleFamily*>(family));
     if (particle_family && particle_family->getEnableGhostItems() == true) {
       _computeForFamily(particle_family);
     }
@@ -108,7 +108,7 @@ computeExtraGhostParticles()
 /*---------------------------------------------------------------------------*/
 
 void ExtraGhostParticlesBuilder::
-_computeForFamily(ParticleFamily* particle_family)
+_computeForFamily(IAnyParticleFamily* particle_family)
 {
   IParallelMng* pm = particle_family->itemFamily()->parallelMng();
   const Int32 nsd = pm->commSize();

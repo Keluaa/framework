@@ -37,7 +37,7 @@ namespace Arcane::mesh
 /*---------------------------------------------------------------------------*/
 
 class DynamicMesh;
-class ParticleFamily;
+class IAnyParticleFamily;
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -66,7 +66,7 @@ class ExtraGhostParticlesBuilder
 
  private:
 
-  void _computeForFamily(ParticleFamily* particle_family);
+  void _computeForFamily(IAnyParticleFamily* particle_family);
 };
 
 /*---------------------------------------------------------------------------*/

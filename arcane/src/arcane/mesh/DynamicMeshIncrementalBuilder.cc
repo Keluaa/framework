@@ -35,7 +35,7 @@
 #include "arcane/mesh/EdgeUniqueIdBuilder.h"
 #include "arcane/mesh/CellFamily.h"
 #include "arcane/mesh/GraphDoFs.h"
-#include "arcane/mesh/ParticleFamily.h"
+#include "arcane/mesh/IAnyParticleFamily.h"
 
 #include <set>
 #include <map>
@@ -1695,7 +1695,7 @@ removeNeedRemoveMarkedItems()
     for (IItemFamilyCollection::Enumerator i(m_mesh->itemFamilies()); ++i;) {
       IItemFamily* family = *i;
       if (family->itemKind() == IK_Particle) {
-        ParticleFamily* particle_family = dynamic_cast<ParticleFamily*>(family);
+        IAnyParticleFamily* particle_family = dynamic_cast<IAnyParticleFamily*>(family);
         ARCANE_CHECK_POINTER(particle_family);
         if (particle_family && particle_family->getEnableGhostItems() == true) {
           UniqueArray<Integer> lids_to_remove;
