@@ -13,6 +13,7 @@
 
 #include "arcane/mesh/DynamicMesh.h"
 
+#include "IAnyParticleFamily.h"
 #include "arcane/utils/ValueConvert.h"
 #include "arcane/utils/StringBuilder.h"
 #include "arcane/utils/ITraceMng.h"
@@ -73,6 +74,7 @@
 #include "arcane/mesh/MeshUniqueIdMng.h"
 #include "arcane/mesh/ItemGroupDynamicMeshObserver.h"
 #include "arcane/mesh/ParticleFamily.h"
+#include "arcane/mesh/ParallelParticleFamily.h"
 #include "arcane/mesh/MeshExchange.h"
 #include "arcane/mesh/UnstructuredMeshUtilities.h"
 #include "arcane/mesh/TiedInterfaceMng.h"
@@ -1665,7 +1667,17 @@ _createNewFamily(eItemKind kind, const String& name)
   case IK_Cell:
     return new CellFamily(this, name);
   case IK_Particle:
-    return new ParticleFamily(this, name);
+  {
+    // TODO: temporary solution
+    String kind = platform::getEnvironmentVariable("ARCANE_PARTICLE_FAMILY_KIND");
+    if (kind.empty() || kind == "sequential") {
+      return new ParticleFamily(this, name);
+    } else if (kind == "parallel") {
+      return new ParallelParticleFamily(this, name);
+    } else {
+      ARCANE_FATAL("Invalid ParticleFamilyKind");
+    }
+  }
   case IK_DoF:
     return new DoFFamily(this, name);
   case IK_Unknown:

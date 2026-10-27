@@ -22,6 +22,15 @@
 namespace Arcane::mesh
 {
 
+//! The kind of IParticleFamily
+enum class ParticleFamilyKind
+{
+  Sequential = 0,  //!< particle family with sequential algorithms
+  Parallel = 1     //!< particle family with accelerator-compatible algorithms
+};
+
+
+//! Base class for implementors of IParticleFamily
 class IAnyParticleFamily
 : public ItemFamily
 , public IParticleFamily
@@ -29,6 +38,9 @@ class IAnyParticleFamily
  public:
   // Inherit the ItemFamily constructors
   using ItemFamily::ItemFamily;
+
+  //! The kind of IParticleFamily
+  virtual ParticleFamilyKind particleFamilyKind() const = 0;
 
   // Some methods are defined in both ItemFamily and IParticleFamily, therefore
   // we choose which specific method to call here.

@@ -55,6 +55,11 @@ class ARCANE_MESH_EXPORT ParticleFamily
   ParticleFamily(IMesh* mesh, const String& name);
   virtual ~ParticleFamily(); //<! Releases resources
 
+  virtual ParticleFamilyKind particleFamilyKind() const override
+  {
+    return ParticleFamilyKind::Sequential;
+  }
+
  public:
 
   virtual void build() override;

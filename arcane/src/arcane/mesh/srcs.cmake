@@ -121,6 +121,8 @@
   ExternalPartitionConstraint.h
   ParticleFamily.cc
   ParticleFamily.h
+  ParallelParticleFamily.cc
+  ParallelParticleFamily.h
   IAnyParticleFamily.h
   ParticleFamilyPolicyMng.cc
   BasicParticleExchanger.cc

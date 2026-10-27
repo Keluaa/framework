@@ -5,13 +5,20 @@ arcane_add_library(arcane_mesh
   RELATIVE_PATH arcane/mesh
   FILES ${ARCANE_SOURCES}
   AXL_FILES ${AXL_FILES}
-  )
+)
 
 target_compile_definitions(arcane_mesh PRIVATE ARCANE_COMPONENT_arcane_mesh)
 
 arcane_add_arccon_packages(arcane_mesh PRIVATE ${PKGS})
 
 target_link_libraries(arcane_mesh PUBLIC arcane_core)
+
+if (ARCANE_HAS_ACCELERATOR)
+  arcane_accelerator_add_source_files(
+    ParallelParticleFamily.cc
+  )
+  target_link_libraries(arcane_mesh PUBLIC arcane_accelerator)
+endif()
 
 find_package(Neo QUIET)
 if(Neo_FOUND)
