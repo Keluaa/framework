@@ -11,6 +11,7 @@
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+#include "arcane/core/ArcaneTypes.h"
 #include "arcane/utils/FatalErrorException.h"
 #include "arcane/utils/PlatformUtils.h"
 #include "arcane/utils/NotImplementedException.h"
@@ -31,11 +32,16 @@
 
 #include "arcane/mesh/DynamicMeshKindInfos.h"
 #include "arcane/mesh/ItemFamily.h"
+#include "arcane/mesh/ItemSharedInfoList.h"
 
 #include "arcane/accelerator/core/IAcceleratorMng.h"
 #include "arcane/accelerator/core/RunQueue.h"
+#include "arcane/accelerator/RunCommandLoop.h"
 #include "arcane/accelerator/core/Memory.h"
 #include "arccore/common/MemoryUtils.h"
+
+#include "arcane/accelerator/core/ProfileRegion.h"
+#include "arccore/common/accelerator/Runner.h"
 
 #include <algorithm>
 #include <set>
@@ -801,10 +807,23 @@ printFreeInternals(Integer max_print)
 void DynamicMeshKindInfos::
 removeMany(Int32ConstArrayView local_ids)
 {
-  Int64ArrayView uids = *(m_item_family->uniqueIds());
   Integer nb_item = local_ids.size();
 
+  Accelerator::RunQueue queue = m_item_family->getQueue();
+  if (Accelerator::getPointerAccessibility(queue, local_ids.data()) == Accelerator::ePointerAccessibility::No) {
+    queue = Accelerator::RunQueue();
+    // TODO: changer en "debug"?
+    warning() << "Cannot run DynamicMeshKindInfos::removeMany using the accelerator as 'local_ids' is inaccessible on the device";
+  }
+  Accelerator::ProfileRegion reg(queue, "removeMany");  // TODO: tmp
+
   if (m_has_unique_id_map) {
+    if (!queue.isNull()) {
+      ARCANE_THROW(NotSupportedException, "Unique ID hash maps are unsupported on accelerator");
+    }
+
+    Int64ArrayView uids = *(m_item_family->uniqueIds());
+
     for (Integer i = 0; i < nb_item; ++i) {
       Int32 lid = local_ids[i];
       ItemInternal* item = m_internals[lid];
@@ -815,6 +834,23 @@ removeMany(Int32ConstArrayView local_ids)
       if (uids[lid] != NULL_ITEM_UNIQUE_ID)
         m_items_map.remove(uids[lid]);
     }
+  }
+  else if (!queue.isNull()) {
+    Accelerator::ProfileRegion reg(queue, "update flags");  // TODO: tmp
+    auto cmd = Accelerator::makeCommand(queue);
+    auto in_local_ids = SmallSpan<const Int32>(local_ids);
+    auto inout_item_flags = SmallSpan<Int32>(m_common_item_shared_info->m_flags);
+
+    ARCCORE_CHECK_ACCESSIBLE_POINTER_ALWAYS(queue, in_local_ids.data());
+    ARCCORE_CHECK_ACCESSIBLE_POINTER_ALWAYS(queue, inout_item_flags.data());
+
+    cmd << RUNCOMMAND_LOOP1(i, nb_item) {
+      ItemLocalId lid(in_local_ids[i]);
+      Int32 f = inout_item_flags[lid];
+      f &= ~ItemFlags::II_Added;
+      f |= ItemFlags::II_Suppressed;
+      inout_item_flags[lid] = f;
+    };
   }
   else {
     for (Integer i = 0; i < nb_item; ++i) {
@@ -828,12 +864,23 @@ removeMany(Int32ConstArrayView local_ids)
   }
 
   m_nb_item -= nb_item;
+
   Integer nb_removed = m_removed_items.size();
-  m_removed_items.resize(nb_removed + nb_item);
-  memcpy(m_removed_items.data() + nb_removed, local_ids.data(), sizeof(Int32) * nb_item);
   Integer nb_free = m_free_internals.size();
+  m_removed_items.resize(nb_removed + nb_item);
   m_free_internals.resize(nb_free + nb_item);
-  memcpy(m_free_internals.data() + nb_free, local_ids.data(), sizeof(Int32) * nb_item);
+
+  if (!queue.isNull()) {
+    Accelerator::ProfileRegion reg(queue, "copy");  // TODO: tmp
+    queue.barrier();  // TODO: if resizes where async and placed on this queue, we could remove this barrier
+                      // or maybe it is safe to do so without the barrier
+    MemoryUtils::copy(m_removed_items.smallSpan().subSpan(nb_removed, nb_item), SmallSpan<const Int32>(local_ids), &queue);
+    MemoryUtils::copy(m_free_internals.smallSpan().subSpan(nb_free, nb_item), SmallSpan<const Int32>(local_ids), &queue);
+  }
+  else {
+    memcpy(m_removed_items.data() + nb_removed, local_ids.data(), sizeof(Int32) * nb_item);
+    memcpy(m_free_internals.data() + nb_free, local_ids.data(), sizeof(Int32) * nb_item);
+  }
 }
 
 /*---------------------------------------------------------------------------*/

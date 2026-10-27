@@ -100,6 +100,16 @@ class ARCANE_CORE_EXPORT IParticleFamily
                                           Int32ConstArrayView cells_local_id,
                                           Int32ArrayView items_local_id) = 0;
 
+  /*!
+   * \brief Removes the particles.
+   *
+   * It is only after calling endUpdate() that the particles are removed.
+   * It is possible to have multiple calls to removeParticles() and addParticles()
+   * before one common endUpdate() call.
+   *
+   * If compression is inactive, removed particles are not deallocated, they
+   * are only marked as unused.
+   */
   virtual void removeParticles(Int32ConstArrayView items_local_id) = 0;
 
   /*!
@@ -109,6 +119,8 @@ class ARCANE_CORE_EXPORT IParticleFamily
 
   /*!
    * \brief Moves the particle \a particle into the cell \a new_cell.
+   *
+   * On the accelerator, use MutableIndexedParticleCellConnectivityView::setCellId() instead.
    */
   virtual void setParticleCell(Particle particle, Cell new_cell) = 0;
 
