@@ -887,6 +887,36 @@ set(ARCANE_USE_HASHTABLEMAP2_FOR_ITEMINTERNALMAP TRUE)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
+# Gestion du support des accélérateurs.
+# Le choix du runtime accélérateur est maintenant dans Arccore (2025/11)
+
+if (ARCANE_HAS_ACCELERATOR)
+  # Les macros ARCANE_WANT* sont utilisées uniquement pour spécifier
+  # le runtime utilisé dans 'arcane_core_config'. A terme il faudra
+  # utiliser ce qui est dans Arccore.
+  if (ARCCORE_HAS_HIP)
+    enable_language(HIP)
+    set (ARCANE_WANT_HIP TRUE)
+  elseif(ARCCORE_HAS_CUDA)
+    if (NOT CMAKE_CUDA_HOST_COMPILER)
+      set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
+    endif()
+    enable_language(CUDA)
+    set (ARCANE_WANT_CUDA TRUE)
+  elseif (ARCCORE_HAS_SYCL)
+    set (ARCANE_WANT_SYCL TRUE)
+  endif()
+endif()
+
+add_subdirectory(src/arcane/accelerator/core)
+add_subdirectory(src/arcane/accelerator)
+
+if (ARCANE_HAS_ACCELERATOR)
+  add_subdirectory(src/arcane/accelerator/${ARCANE_ACCELERATOR_RUNTIME}/runtime)
+endif()
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 message(STATUS "ARCANE_LIBRARIES '${ARCANE_LIBRARIES}'")
 
@@ -919,36 +949,6 @@ endif()
 add_subdirectory(src/arcane/driverlib)
 add_subdirectory(src/arcane/driver)
 add_subdirectory(src/arcane/lima)
-
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-# Gestion du support des accélérateurs.
-# Le choix du runtime accélérateur est maintenant dans Arccore (2025/11)
-
-if (ARCANE_HAS_ACCELERATOR)
-  # Les macros ARCANE_WANT* sont utilisées uniquement pour spécifier
-  # le runtime utilisé dans 'arcane_core_config'. A terme il faudra
-  # utiliser ce qui est dans Arccore.
-  if (ARCCORE_HAS_HIP)
-    enable_language(HIP)
-    set (ARCANE_WANT_HIP TRUE)
-  elseif(ARCCORE_HAS_CUDA)
-    if (NOT CMAKE_CUDA_HOST_COMPILER)
-      set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
-    endif()
-    enable_language(CUDA)
-    set (ARCANE_WANT_CUDA TRUE)
-  elseif (ARCCORE_HAS_SYCL)
-    set (ARCANE_WANT_SYCL TRUE)
-  endif()
-endif()
-
-add_subdirectory(src/arcane/accelerator/core)
-add_subdirectory(src/arcane/accelerator)
-
-if (ARCANE_HAS_ACCELERATOR)
-  add_subdirectory(src/arcane/accelerator/${ARCANE_ACCELERATOR_RUNTIME}/runtime)
-endif()
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
