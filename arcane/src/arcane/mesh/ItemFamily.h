@@ -323,6 +323,12 @@ class ARCANE_MESH_EXPORT ItemFamily
   void _removeDetachedOne(Item item);
   const DynamicMeshKindInfos& _infos() const;
 
+  void _allocMany(Int64ConstArrayView unique_ids, Int32ArrayView local_ids, Int32 owner_id, ItemSharedInfoWithType* isi);
+  void _allocMany(Int64ConstArrayView unique_ids, Int32ArrayView local_ids, ItemSharedInfoWithType* isi)
+  {
+    return _allocMany(unique_ids, local_ids, m_default_sub_domain_owner, isi);
+  }
+
   void _detachCells2(Int32ConstArrayView local_ids);
 
   virtual void _endAllocate();
@@ -386,6 +392,7 @@ class ARCANE_MESH_EXPORT ItemFamily
 
   void _allocateInfos(ItemInternal* item, Int64 uid, ItemSharedInfoWithType* isi);
   void _allocateInfos(ItemInternal* item, Int64 uid, ItemTypeInfo* type);
+  void _allocateManyInfos(Int32ConstArrayView local_ids);
   void _endUpdate(bool need_check_remove);
   bool _partialEndUpdate();
   void _updateGroup(ItemGroup group, bool need_check_remove);
@@ -400,6 +407,8 @@ class ARCANE_MESH_EXPORT ItemFamily
   }
 
  public:
+
+  void notifyItemsChanged(Int32ConstArrayView local_ids);
 
   IItemFamilyTopologyModifier* _topologyModifier() override { return m_topology_modifier; }
   void resizeVariables(bool force_resize) override

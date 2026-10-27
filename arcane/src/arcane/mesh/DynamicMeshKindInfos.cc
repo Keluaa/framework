@@ -886,6 +886,231 @@ removeMany(Int32ConstArrayView local_ids)
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+// TODO: tmp
+template<size_t N>
+void whoIsAvailable(TraceMessage&& msg, Accelerator::RunQueue* queue, const std::array<std::tuple<std::string_view, const void*, Int32>, N>& arrays)
+{
+  msg << "Accessibility of " << N << " arrays on " << queue->executionPolicy() << ":";
+  for (auto [name, ptr, size] : arrays) {
+    auto accessibility = Accelerator::getPointerAccessibility(queue, ptr);
+    msg << "\n - " << name << " (" << ptr << ", " << size << " elements) : " <<
+      (accessibility == Accelerator::ePointerAccessibility::No  ? "No"  :
+       accessibility == Accelerator::ePointerAccessibility::Yes ? "Yes" : "Unknown");
+  }
+}
+
+void DynamicMeshKindInfos::
+allocManyAndInitialize(Int64ConstArrayView unique_ids,
+                       Int32ArrayView local_ids,
+                       Int32 owner_id, Int32 current_sub_domain_id,
+                       ItemSharedInfoWithType* isi)
+{
+  // TODO: move the queue choice in the `cmd` region, after removing the ProfileRegions
+  Accelerator::RunQueue queue = m_item_family->getQueue();
+  if (Accelerator::getPointerAccessibility(queue, unique_ids.data()) == Accelerator::ePointerAccessibility::No) {
+    queue = m_item_family->getHostQueue();
+    // TODO: changer en "debug"?
+    warning() << "Cannot run DynamicMeshKindInfos::allocManyusing the accelerator as 'unique_ids' is inaccessible on the device";
+  }
+  else {
+    info() << "DynamicMeshKindInfos::allocMany is running on the device";  // TODO: tmp
+  }
+
+  Accelerator::ProfileRegion reg(queue, "allocMany");  // TODO: tmp
+
+  // TODO: as optional arguments
+  ItemSharedInfo* shared_infos = isi->sharedInfo();
+  ItemTypeId itid = isi->itemTypeId();
+  Int16 type_id   = itid.typeId();
+  Int32 parent_id = NULL_ITEM_LOCAL_ID;
+
+  Integer nb_item  = unique_ids.size();
+  Integer nb_free  = m_free_internals.size();
+  Integer nb_reuse = math::min(nb_item, nb_free);
+  Integer nb_alloc = nb_item - nb_reuse;
+  Integer nb_internal_before = m_internals.size();
+
+  if (nb_alloc > 0) {
+    // The remaining internal items must be allocated and initialized.
+    // Here we suppose that a call to `m_item_family._preAllocate(nb_item)` was made, in which
+    // case the shared info arrays are already at the right size.
+
+    Accelerator::ProfileRegion reg(queue, "ItemInternal CPU init");
+
+    //
+    // CPU
+    // TODO: voir pour mettre ça sur GPU, ou au moins s'assurer que ça ne touche pas à la mémoire du device
+    //   -> on pourrait aussi paralléliser ces boucles (multi-threading seulement)
+    // TODO: idéalement, on place ça APRÈS avoir lancé le kernel GPU et AVANT la barrière, pour recouvrir du travail GPU par du CPU
+    //
+
+    Integer nb_free_internals  = m_free_internals_in_multi_buffer.size();
+    Integer nb_reuse_internals = math::min(nb_alloc, nb_free_internals);
+    Integer nb_alloc_internals = nb_alloc - nb_reuse_internals;
+    Integer lid_offset = nb_internal_before;
+
+    if (m_nb_item < 0) {
+      ARCANE_FATAL("m_nb_item is negative");
+    }
+
+    Integer internals_offset = m_internals.size();
+    m_internals.resizeNoInit(m_internals.size() + nb_alloc);
+
+    if (nb_reuse_internals > 0) {
+      // Reuse available `ItemInternal` objects, starting from the last ones
+      for (Integer i = 0; i < nb_reuse_internals; i++) {
+        ItemInternal* new_item = m_free_internals_in_multi_buffer[nb_free_internals - i - 1];
+        Int32 lid = lid_offset + i;
+        new_item->setLocalId(lid);
+        new_item->_setSharedInfo(shared_infos, itid);
+        m_internals[internals_offset + i] = new_item;
+      }
+      // Since we only consumed items from the back, we use `resize` to remove them from the list
+      m_free_internals_in_multi_buffer.resize(nb_free_internals - nb_reuse_internals);
+      internals_offset += nb_reuse_internals;
+      lid_offset += nb_reuse_internals;
+    }
+
+    if (nb_alloc_internals > 0) {
+      // Allocate new `ItemInternal`s for the remaining objects
+      ArrayView<ItemInternal> allocated_items = m_item_internals_buffer->allocMany(nb_alloc_internals);
+      for (Int32 i = 0; i < nb_alloc_internals; i++) {
+        ItemInternal* new_item = allocated_items.ptrAt(i);
+        Int32 lid = lid_offset + i;
+        new_item->setLocalId(lid);
+        new_item->_setSharedInfo(shared_infos, itid);
+        m_internals[internals_offset + i] = new_item;
+      }
+      internals_offset += nb_alloc_internals;
+      lid_offset += nb_alloc_internals;
+    }
+  }
+
+  _updateItemSharedInfoInternalView();
+
+  Int32 added_items_offset = m_added_items.size();
+  m_added_items.resizeNoInit(added_items_offset + nb_item);
+
+  {
+    auto cmd = Accelerator::makeCommand(queue);
+
+    auto in_free = m_free_internals.smallSpan();
+    auto in_uids = SmallSpan<const Int64>(unique_ids);
+    auto out_lids = SmallSpan<Int32>(local_ids);
+    auto out_added_items = m_added_items.smallSpan();
+
+    auto out_uids   = SmallSpan<Int64>(m_common_item_shared_info->m_unique_ids);
+    auto out_owners = SmallSpan<Int32>(m_common_item_shared_info->m_owners);
+    auto out_typeid = SmallSpan<Int16>(m_common_item_shared_info->m_type_ids);
+    auto out_parent = SmallSpan<Int32>(m_common_item_shared_info->m_parent_item_ids);
+    auto out_flags  = SmallSpan<Int32>(m_common_item_shared_info->m_flags);
+
+    // TODO: tmp
+    // whoIsAvailable(info(), &queue, std::array<std::tuple<std::string_view, const void*, Int32>, 9>{
+    //   std::make_tuple("in_free", in_free.data(), in_free.size()),
+    //   std::make_tuple("in_uids", in_uids.data(), in_uids.size()),
+    //   std::make_tuple("out_uids", out_uids.data(), out_uids.size()),
+    //   std::make_tuple("out_owners", out_owners.data(), out_owners.size()),
+    //   std::make_tuple("out_typeid", out_typeid.data(), out_typeid.size()),
+    //   std::make_tuple("out_parent", out_parent.data(), out_parent.size()),
+    //   std::make_tuple("out_flags", out_flags.data(), out_flags.size()),
+    //   std::make_tuple("out_lids", out_lids.data(), out_lids.size()),
+    //   std::make_tuple("out_added_items", out_added_items.data(), out_added_items.size()),
+    // });
+
+    Integer nb_allocated_items = out_uids.size();
+    if (m_nb_item + nb_reuse + nb_alloc > nb_allocated_items) {
+      ARCANE_FATAL("Not enough items were pre allocated prior to this 'allocMany' call. Allocated: {0}, required: {1}",
+          nb_allocated_items, m_nb_item + nb_reuse + nb_alloc);
+    }
+
+    Int32 allocated_items_lid_offset = nb_internal_before;
+
+    // Mark all items as added
+    Int32 flags = ItemFlags::II_Added;
+    if (owner_id == current_sub_domain_id) {
+      flags |= ItemFlags::II_Own;
+    }
+
+    cmd << RUNCOMMAND_LOOP1(i, nb_reuse + nb_alloc) {
+      ItemLocalId lid;
+      if (i < nb_reuse) {
+        // Reused items
+        Integer free_idx = nb_free - i - 1;  // consume the last elements of the list first
+        lid = ItemLocalId(in_free[free_idx]);
+      }
+      else {
+        // Allocated items
+        lid = ItemLocalId(allocated_items_lid_offset - nb_reuse + i);
+      }
+
+      out_flags[lid] = flags;
+      out_owners[lid] = owner_id;
+      out_typeid[lid] = type_id;
+      if (out_parent.size() > 0)
+        out_parent[lid] = parent_id;
+      out_uids[lid] = in_uids[i];
+      out_lids[i] = lid;
+      out_added_items[added_items_offset + i] = lid;
+    };
+  }
+
+  queue.barrier();
+
+  m_nb_item += nb_item;
+
+  // Remove the reused items without touching memory from the host
+  m_free_internals.resize(nb_free - nb_reuse);
+
+#ifdef ARCANE_CHECK
+  for (Int32 i = 0; i < nb_alloc; i++) {
+    ItemInternal* item = m_internals[m_internals.size() - nb_alloc + i];
+    Int32 internal_lid = item->localId();
+    Int32 expected_lid = m_added_items[m_added_items.size() - nb_alloc + i];
+    Int32 output_lid = local_ids[local_ids.size() - nb_alloc + i];
+    if (expected_lid != internal_lid) {
+      ARCANE_FATAL("LocalId discrepancy between m_added_items ({0}) and m_internals ({1})",
+          expected_lid, internal_lid);
+    }
+    if (expected_lid != output_lid) {
+      ARCANE_FATAL("LocalId discrepancy between m_added_items ({0}) and local_ids ({1})",
+          expected_lid, output_lid);
+    }
+  }
+#endif
+
+  Int32ConstArrayView allocated_item_lids(nb_alloc, m_added_items.data() + added_items_offset + nb_reuse);
+  m_item_family->notifyItemsChanged(allocated_item_lids);
+
+  if (m_item_list_change_event.hasObservers()) {
+    if (queue.isNull()) {
+      for (Int32 i = 0; i < nb_item; i++) {
+        ItemFamilyItemListChangedEventArgs args(m_item_family, local_ids[i], unique_ids[i]);
+        args.setIsAdd(true);
+        m_item_list_change_event.notify(args);
+      }
+    } else {
+      // TODO: notify the observers, but we need to avoid touching the UIDs and LIDs from the host
+      ARCANE_THROW(NotImplementedException, "observers on the device are unsupported");
+    }
+  }
+
+  if (m_has_unique_id_map) {
+    if (queue.isNull()) {
+      ARCCORE_THROW(NotImplementedException, "unique id map on the host is not yet implemented");
+      // TODO: update the map with the new unique IDs
+      // if (!m_items_map.add(unique_id, next))
+      //   _badSameUniqueId(unique_id);
+    } else {
+      // TODO: update the map on GPU?
+      ARCANE_THROW(NotImplementedException, "unique id map on the device is unsupported");
+    }
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 void DynamicMeshKindInfos::
 setHasUniqueIdMap(bool v)
 {

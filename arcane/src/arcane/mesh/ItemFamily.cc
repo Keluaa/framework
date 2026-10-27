@@ -473,6 +473,13 @@ _findOrAllocOne(Int64 uid, bool& is_alloc)
   return m_infos->findOrAllocOne(uid, is_alloc);
 }
 void ItemFamily::
+_allocMany(Int64ConstArrayView unique_ids, Int32ArrayView local_ids, Int32 owner_id, ItemSharedInfoWithType* isi)
+{
+  return m_infos->allocManyAndInitialize(unique_ids, local_ids,
+                                         owner_id, m_sub_domain_id,
+                                         isi);
+}
+void ItemFamily::
 _setHasUniqueIdMap(bool v)
 {
   m_infos->setHasUniqueIdMap(v);
@@ -1859,6 +1866,8 @@ _resizeItemVariables(Int32 new_size, bool force_resize)
   if (is_resize)
     _updateItemViews();
 
+  // TODO: RUNCOMMAND_SINGLE sur la queue pour init sur le device
+
   // Positions the values for the null entity.
   // NOTE: check if this should be done at initialization.
   (*m_items_unique_id)[0] = NULL_ITEM_UNIQUE_ID;
@@ -1889,6 +1898,38 @@ _allocateInfos(ItemInternal* item, Int64 uid, ItemSharedInfoWithType* isi)
   // Notify the incremental connectivities that we added an item to the source
   for (auto& c : m_source_incremental_item_connectivities)
     c->notifySourceItemAdded(ItemLocalId(local_id));
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+void ItemFamily::
+notifyItemsChanged(Int32ConstArrayView local_ids)
+{
+  for (auto& c : m_source_incremental_item_connectivities) {
+    for (Int32 local_id : local_ids) {
+      c->notifySourceItemAdded(ItemLocalId(local_id));
+    }
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void ItemFamily::
+_allocateManyInfos(Int32ConstArrayView local_ids)
+{
+  Int32 count = local_ids.size();
+  // _resizeItemVariables(maxLocalId() + count, false);
+  m_nb_allocate_info += count;
+  if (m_source_incremental_item_connectivities.size() > 0) {
+    info() << "oh wow there are " << m_source_incremental_item_connectivities.size() << " things to notify for " << local_ids.size() << " items added!";
+    // warning() << "I disabled that just to see what happens";  // TODO
+  }
+  for (auto& c : m_source_incremental_item_connectivities) {
+    for (Int32 local_id : local_ids) {
+      // c->notifySourceItemAdded(ItemLocalId(local_id));
+    }
+  }
 }
 
 /*---------------------------------------------------------------------------*/

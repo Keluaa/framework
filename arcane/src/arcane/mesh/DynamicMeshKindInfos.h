@@ -77,10 +77,10 @@ class ARCANE_MESH_EXPORT DynamicMeshKindInfos
   void finalizeMeshChanged();
 
   /*! \brief Largest local ID used.
-    
-    This number is used to allocate variable arrays
-    on the mesh entities.
-  */
+   *
+   * This number is used to allocate variable arrays
+   * on the mesh entities.
+   */
   Integer maxUsedLocalId() const { return m_internals.size(); }
 
   //! Prepares variables for dumps
@@ -190,6 +190,16 @@ class ARCANE_MESH_EXPORT DynamicMeshKindInfos
 
   //! Removes a list of entities
   void removeMany(Int32ConstArrayView local_ids);
+
+  /*! Creates multiple entities from their unique IDs, and returns their local ID
+   *
+   * All item shared info (item flags, sub domain owner ID, parent ID, type ID)
+   * of allocated items can be set here as well.
+   */
+  void allocManyAndInitialize(Int64ConstArrayView unique_ids,
+                              Int32ArrayView local_ids,
+                              Int32 owner_id, Int32 current_sub_domain_id,
+                              ItemSharedInfoWithType* isi);
 
   //! Finds the entity with unique ID \a unique_id and creates it if it does not exist
   ItemInternal* findOrAllocOne(Int64 uid, bool& is_alloc)
