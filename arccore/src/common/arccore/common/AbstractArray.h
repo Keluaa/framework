@@ -565,14 +565,18 @@ class AbstractArray
 
   void changeAllocator(const MemoryAllocationOptions& options, RunQueue* queue)
   {
+    if (!m_md->is_not_null && options.allocator() && options.allocator() != allocator()) {
+      // An array without its own metadata loses the new options at the first
+      // allocation (see _allocateMetaData()). The fix is to explicitly "allocate" 0 elements.
+      _directFirstAllocateWithAllocator(0, options);
+    }
     _setMPCast(m_md->_changeAllocator(options, _currentMemoryInfo(), typeSize(), queue));
     _updateReferences();
   }
 
   void changeAllocator(const MemoryAllocationOptions& options)
   {
-    _setMPCast(m_md->_changeAllocator(options, _currentMemoryInfo(), typeSize(), _nullRunQueue()));
-    _updateReferences();
+    changeAllocator(options, _nullRunQueue());
   }
 
  protected:
