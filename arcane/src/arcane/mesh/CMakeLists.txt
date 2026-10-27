@@ -16,6 +16,7 @@ target_link_libraries(arcane_mesh PUBLIC arcane_core)
 if (ARCANE_HAS_ACCELERATOR)
   arcane_accelerator_add_source_files(
     ParallelParticleFamily.cc
+    DynamicMeshKindInfos.cc
   )
   target_link_libraries(arcane_mesh PUBLIC arcane_accelerator)
 endif()

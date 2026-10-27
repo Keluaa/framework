@@ -32,6 +32,11 @@
 #include "arcane/mesh/DynamicMeshKindInfos.h"
 #include "arcane/mesh/ItemFamily.h"
 
+#include "arcane/accelerator/core/IAcceleratorMng.h"
+#include "arcane/accelerator/core/RunQueue.h"
+#include "arcane/accelerator/core/Memory.h"
+#include "arccore/common/MemoryUtils.h"
+
 #include <algorithm>
 #include <set>
 
@@ -907,6 +912,25 @@ setItemFamily(ItemFamily* item_family)
 {
   m_item_family = item_family;
   m_common_item_shared_info = item_family->commonItemSharedInfo();
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void DynamicMeshKindInfos::
+changeAllocators(Accelerator::RunQueue& old_queue, Accelerator::RunQueue& new_queue)
+{
+  MemoryAllocationOptions acc_alloc = new_queue.allocationOptions();
+  if (acc_alloc == old_queue.allocationOptions()) {
+    return;  // no changes to do
+  }
+
+  info() << "moving from " << old_queue.executionPolicy() << " to " << new_queue.executionPolicy();  // TODO: tmp
+  // This should only happen at initialization, therefore no data movement should occur here,
+  // as those arrays are still empty.
+  m_removed_items.changeAllocator(acc_alloc, &new_queue);
+  m_added_items.changeAllocator(acc_alloc, &new_queue);
+  m_free_internals.changeAllocator(acc_alloc, &new_queue);
 }
 
 /*---------------------------------------------------------------------------*/

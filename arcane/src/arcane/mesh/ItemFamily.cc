@@ -73,6 +73,9 @@
 #include "arcane/mesh/ItemData.h"
 #include "arcane/mesh/ConnectivityNewWithDependenciesTypes.h"
 
+#include "arcane/accelerator/core/RunQueue.h"
+#include "arccore/common/accelerator/Runner.h"
+
 #include <array>
 
 /*---------------------------------------------------------------------------*/
@@ -2794,6 +2797,38 @@ _internalApi()
   return m_internal_api;
 }
 
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void ItemFamily::
+setQueue(Accelerator::RunQueue& queue)
+{
+  if (!isOnAccelerator()) {
+    ARCANE_THROW(NotSupportedException, "Cannot set the RunQueue of an ItemFamily which does not support accelerators");
+  }
+  auto old_queue = m_queue;
+  m_queue = queue;
+  m_infos->changeAllocators(old_queue, m_queue);
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+const Accelerator::RunQueue& ItemFamily::
+getQueue() const
+{
+  return m_queue;
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+Accelerator::RunQueue ItemFamily::
+getHostQueue() const
+{
+  Accelerator::Runner host_runner(Accelerator::eExecutionPolicy::Thread);
+  return Accelerator::makeQueue(host_runner);
+}
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 

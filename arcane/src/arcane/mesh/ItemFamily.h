@@ -26,6 +26,8 @@
 #include "arcane/core/ItemSharedInfo.h"
 #include "arcane/core/ItemGroup.h"
 
+#include "arcane/accelerator/core/RunQueue.h"
+
 #include <map>
 #include <set>
 
@@ -426,6 +428,43 @@ class ARCANE_MESH_EXPORT ItemFamily
 
   bool m_is_parallel = false;
 
+ protected:
+
+  /*!
+   * \brief The queue associated with the family.
+   *
+   * By default it is a null RunQueue, in which case no operation takes place on the device.
+   */
+  Accelerator::RunQueue m_queue = Accelerator::RunQueue();
+
+ public:
+
+  /*!
+   * \brief True if this ItemFamily uses accelerators.
+   *
+   * This property is only set once when the ItemFamily is created,
+   * and remains fixed for the remainder of the application.
+   */
+  virtual bool isOnAccelerator() const { return false; }
+
+  /*!
+   * \brief Sets the RunQueue associated to this ItemFamily.
+   *
+   * This is only possible if isOnAccelerator() is \c true.
+   */
+  void setQueue(Accelerator::RunQueue& queue);
+
+  /*!
+   * \brief The RunQueue associated with this ItemFamily.
+   */
+  const Accelerator::RunQueue& getQueue() const;
+
+  /*!
+   * \brief Returns a RunQueue for submitting multi-threaded work on the host.
+   */
+  Accelerator::RunQueue getHostQueue() const;
+
+ private:
   /*!
    * \brief Family identifier.
    *

@@ -284,6 +284,8 @@ class ARCANE_MESH_EXPORT DynamicMeshKindInfos
 
   EventObservableView<const ItemFamilyItemListChangedEventArgs&> itemListChangedEvent();
 
+  void changeAllocators(Accelerator::RunQueue& old_queue, Accelerator::RunQueue& new_queue);
+
  private:
 
   /*! \brief Adds an entity.
